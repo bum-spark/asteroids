@@ -132,6 +132,7 @@ class Ship {
     this.thrusting     = false;
     this.invincible    = 3;
     this.shootCooldown = 0;
+    this.speedTimer    = 0;
     this.dead          = false;
   }
 
@@ -144,13 +145,16 @@ class Ship {
     const THRUST = 260;  // px/s²
     const DRAG   = 0.987;
 
+    if (this.speedTimer > 0) this.speedTimer -= dt;
+    const thrust = this.speedTimer > 0 ? THRUST * 2 : THRUST;  // power-up Velocidad
+
     if (keys['ArrowLeft'])  this.angle -= ROT * dt;
     if (keys['ArrowRight']) this.angle += ROT * dt;
 
     this.thrusting = !!keys['ArrowUp'];
     if (this.thrusting) {
-      this.vx += Math.cos(this.angle) * THRUST * dt;
-      this.vy += Math.sin(this.angle) * THRUST * dt;
+      this.vx += Math.cos(this.angle) * thrust * dt;
+      this.vy += Math.sin(this.angle) * thrust * dt;
     }
 
     this.vx *= DRAG;
@@ -235,8 +239,52 @@ class Particle {
   }
 }
 
+// ── Power-up (Velocidad) ──────────────────────────────────────────────────────
+const POWERUP_DURATION = 5;   // segundos de efecto
+
+class PowerUp {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    const angle = rand(0, Math.PI * 2);
+    const speed = rand(20, 50);
+    this.vx = Math.cos(angle) * speed;
+    this.vy = Math.sin(angle) * speed;
+    this.radius = 12;
+    this.ttl   = 10;
+    this.phase = rand(0, Math.PI * 2);
+    this.dead  = false;
+  }
+
+  update(dt) {
+    this.x = wrap(this.x + this.vx * dt, W);
+    this.y = wrap(this.y + this.vy * dt, H);
+    this.ttl -= dt;
+    this.phase += dt * 6;
+    if (this.ttl <= 0) this.dead = true;
+  }
+
+  draw() {
+    const pulse = 1 + Math.sin(this.phase) * 0.15;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.scale(pulse, pulse);
+    ctx.strokeStyle = '#ffd700';
+    ctx.fillStyle   = '#ffd700';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.font = 'bold 14px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('V', 0, 1);
+    ctx.restore();
+  }
+}
+
 // ── Estado del juego ──────────────────────────────────────────────────────────
-let ship, bullets, asteroids, particles;
+let ship, bullets, asteroids, particles, powerups;
 let score, lives, level;
 let state;      // 'playing' | 'dead' | 'gameover'
 let deadTimer;
@@ -258,6 +306,7 @@ function initGame() {
   bullets   = [];
   asteroids = [];
   particles = [];
+  powerups  = [];
   score  = 0;
   lives  = 3;
   level  = 1;
@@ -316,9 +365,11 @@ function update(dt) {
   bullets.forEach(b => b.update(dt));
   asteroids.forEach(a => a.update(dt));
   particles.forEach(p => p.update(dt));
+  powerups.forEach(p => p.update(dt));
 
   bullets   = bullets.filter(b => !b.dead);
   particles = particles.filter(p => !p.dead);
+  powerups  = powerups.filter(p => !p.dead);
 
   // Bala vs asteroide
   const newAsteroids = [];
@@ -329,6 +380,7 @@ function update(dt) {
         a.dead = true;
         score += POINTS[a.size];
         explode(a.x, a.y, a.size * 5);
+        if (Math.random() < 0.25) powerups.push(new PowerUp(a.x, a.y));
         newAsteroids.push(...a.split());
       }
     }
@@ -344,6 +396,18 @@ function update(dt) {
         break;
       }
     }
+  }
+
+  // Nave vs power-up
+  if (!ship.dead) {
+    for (const p of powerups) {
+      if (dist(ship, p) < ship.radius + p.radius) {
+        p.dead = true;
+        ship.speedTimer = POWERUP_DURATION;
+        explode(p.x, p.y, 6);
+      }
+    }
+    powerups = powerups.filter(p => !p.dead);
   }
 
   // Nivel completado
@@ -383,6 +447,27 @@ function drawHUD() {
 
 }
 
+function drawPowerUpBar() {
+  if (state !== 'playing' || ship.speedTimer <= 0) return;
+  const x = 14;
+  const y = H - 56;
+  const w = 170;
+  const h = 16;
+  const frac = ship.speedTimer / POWERUP_DURATION;
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#ffd700';
+  ctx.font = 'bold 13px monospace';
+  ctx.fillText(`VELOCIDAD  ${ship.speedTimer.toFixed(1)}s`, x, y - 10);
+
+  ctx.strokeStyle = '#ffd700';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(x, y, w, h);
+
+  ctx.fillStyle = '#ffd700';
+  ctx.fillRect(x + 2, y + 2, (w - 4) * frac, h - 4);
+}
+
 function drawOverlay(title, sub) {
   ctx.textAlign   = 'center';
   ctx.fillStyle   = '#fff';
@@ -400,9 +485,11 @@ function draw() {
   particles.forEach(p => p.draw());
   asteroids.forEach(a => a.draw());
   bullets.forEach(b => b.draw());
+  powerups.forEach(p => p.draw());
   ship.draw();
 
   drawHUD();
+  drawPowerUpBar();
 
   if (state === 'gameover')
     drawOverlay('GAME OVER', `PUNTAJE: ${score}   —   ESPACIO PARA REINICIAR`);
