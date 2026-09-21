@@ -832,9 +832,9 @@ function drawEffectBar(label, color, timer, duration, y) {
 
 function drawPowerUpBars() {
   if (state !== 'playing') return;
-  if (ship.speedTimer  > 0) drawEffectBar('VELOCIDAD',   '#ffd700', ship.speedTimer,  POWERUP_DURATION, H - 78);
-  if (ship.shieldTimer > 0) drawEffectBar('ESCUDO',      '#00e5ff', ship.shieldTimer, SHIELD_DURATION,  H - 56);
-  if (ship.tripleTimer > 0) drawEffectBar('TRIPLE SHOT', '#00d5ff', ship.tripleTimer, POWERUP_DURATION, H - 34);
+  if (ship.speedTimer  > 0) drawEffectBar('VELOCIDAD',   '#ffd700', ship.speedTimer,  POWERUP_DURATION, H - 112);
+  if (ship.shieldTimer > 0) drawEffectBar('ESCUDO',      '#00e5ff', ship.shieldTimer, SHIELD_DURATION,  H - 74);
+  if (ship.tripleTimer > 0) drawEffectBar('TRIPLE SHOT', '#00d5ff', ship.tripleTimer, POWERUP_DURATION, H - 36);
 }
 
 function drawOverlay(title, sub) {
