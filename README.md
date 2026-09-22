@@ -44,4 +44,5 @@ Luego visita `http://localhost:3000`.
 - Asteroides se parten en fragmentos más pequeños al ser destruidos
 - Partículas de explosión al destruir asteroides
 - Power-up **Velocidad**: suelta al azar al destruir asteroides; al recogerlo duplica la aceleración durante 5 segundos, con barra de tiempo restante en la esquina inferior izquierda
+- Power-up **Escudo**: suelta al azar al destruir asteroides o estrellas fugaces; al recogerlo protege la nave durante 6 segundos con una burbuja que anula los impactos (asteroides y estrellas siguen su camino intactos), con barra de tiempo restante bajo la de Velocidad
 - **Estrella fugaz**: asteroide especial en forma de estrella dorada, más rápido que los normales, con estela y destellos; aparece con poca probabilidad al destruir asteroides, desaparece solo y da 200 puntos
