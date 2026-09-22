@@ -276,6 +276,134 @@ class ShootingStar {
   }
 }
 
+// ── Skins ─────────────────────────────────────────────────────────────────────
+// Cada skin define la silueta (verts), colores y llama de la nave.
+const SKINS = [
+  {
+    name: 'CLÁSICA',
+    color: '#fff',
+    verts: [[20, 0], [-12, -9], [-7, 0], [-12, 9]],
+    nose: 21,
+    flameX: -8,
+    flame: 'rgba(255, 130, 0, 0.85)',
+    flameHalf: 4,
+    flameLen: 14,
+    glow: null,
+    cockpit: null,
+  },
+  {
+    name: 'FÉNIX',
+    color: '#ffb300',
+    verts: [[26, 0], [-6, -14], [-12, 0], [-6, 14]],
+    nose: 27,
+    flameX: -12,
+    flame: 'rgba(255, 200, 0, 0.9)',
+    flameHalf: 5,
+    flameLen: 18,
+    glow: 'rgba(255, 170, 0, 0.12)',
+    cockpit: [10, 0],
+  },
+  {
+    name: 'VÍBORA',
+    color: '#4ade80',
+    verts: [[30, 0], [-10, -7], [-13, 0], [-10, 7]],
+    nose: 31,
+    flameX: -12,
+    flame: 'rgba(0, 220, 120, 0.85)',
+    flameHalf: 3,
+    flameLen: 20,
+    glow: 'rgba(74, 222, 128, 0.10)',
+    cockpit: [12, 0],
+  },
+  {
+    name: 'SOMBRA',
+    color: '#6de6ff',
+    verts: [[24, 0], [-10, -12], [-6, 0], [-10, 12]],
+    nose: 25,
+    flameX: -9,
+    flame: 'rgba(60, 200, 255, 0.85)',
+    flameHalf: 5,
+    flameLen: 16,
+    glow: 'rgba(109, 230, 255, 0.12)',
+    cockpit: [9, 0],
+  },
+  {
+    name: 'NOVA',
+    color: '#ff5cf0',
+    verts: [[20, 0], [-14, -8], [-9, 0], [-14, 8]],
+    nose: 21,
+    flameX: -12,
+    flame: 'rgba(255, 90, 220, 0.85)',
+    flameHalf: 4,
+    flameLen: 15,
+    glow: 'rgba(255, 92, 240, 0.12)',
+    cockpit: [8, 0],
+  },
+];
+
+const SKIN_STORAGE_KEY = 'asteroids.skin';
+
+function loadSkinIndex() {
+  try {
+    const saved = parseInt(localStorage.getItem(SKIN_STORAGE_KEY), 10);
+    if (Number.isInteger(saved) && saved >= 0 && saved < SKINS.length) return saved;
+  } catch (e) { /* localStorage no disponible */ }
+  return 0;
+}
+
+function saveSkin(index) {
+  try { localStorage.setItem(SKIN_STORAGE_KEY, String(index)); } catch (e) { /* noop */ }
+}
+
+function selectSkin(index) {
+  if (index < 0 || index >= SKINS.length || index === skinIndex) return;
+  skinIndex = index;
+  saveSkin(skinIndex);
+}
+
+let skinIndex = loadSkinIndex();
+
+// Dibuja la nave (o icono) usando una skin; requiere translate/rotate aplicados.
+function drawSkinShip(skin, scale = 1) {
+  ctx.save();
+  if (scale !== 1) ctx.scale(scale, scale);
+
+  // Halo de glow detrás de la nave
+  if (skin.glow) {
+    const gR = 34;
+    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, gR);
+    glow.addColorStop(0, skin.glow);
+    glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, gR, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Silueta de la nave
+  ctx.strokeStyle = skin.color;
+  ctx.lineWidth   = 1.5;
+  ctx.lineJoin    = 'round';
+  ctx.beginPath();
+  ctx.moveTo(skin.verts[0][0], skin.verts[0][1]);
+  for (let i = 1; i < skin.verts.length; i++)
+    ctx.lineTo(skin.verts[i][0], skin.verts[i][1]);
+  ctx.closePath();
+  ctx.stroke();
+
+  // Cabina decorativa
+  if (skin.cockpit) {
+    ctx.fillStyle = skin.color;
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.arc(skin.cockpit[0], skin.cockpit[1], 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+}
+
 // ── Ship ──────────────────────────────────────────────────────────────────────
 class Ship {
   constructor() { this.reset(); }
@@ -324,9 +452,9 @@ class Ship {
   tryShoot() {
     if (this.shootCooldown > 0 || this.dead) return [];
     this.shootCooldown = 0.2;
-    const NOSE = 21;
-    const ox = this.x + Math.cos(this.angle) * NOSE;
-    const oy = this.y + Math.sin(this.angle) * NOSE;
+    const skin = SKINS[skinIndex];
+    const ox = this.x + Math.cos(this.angle) * skin.nose;
+    const oy = this.y + Math.sin(this.angle) * skin.nose;
     return [new Bullet(ox, oy, this.angle)];
   }
 
@@ -335,29 +463,19 @@ class Ship {
     // Parpadeo durante invencibilidad de reaparición
     if (this.invincible > 0 && Math.floor(this.invincible * 8) % 2 === 0) return;
 
+    const skin = SKINS[skinIndex];
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth   = 1.5;
-    ctx.lineJoin    = 'round';
-
-    // Silueta clásica: triángulo con muesca trasera
-    ctx.beginPath();
-    ctx.moveTo( 20,  0);   // nariz
-    ctx.lineTo(-12, -9);   // ala izquierda
-    ctx.lineTo( -7,  0);   // muesca trasera
-    ctx.lineTo(-12,  9);   // ala derecha
-    ctx.closePath();
-    ctx.stroke();
+    drawSkinShip(skin);
 
     // Llama del propulsor
     if (this.thrusting && Math.random() > 0.35) {
       ctx.beginPath();
-      ctx.moveTo(-8, -4);
-      ctx.lineTo(-8 - rand(6, 14), 0);
-      ctx.lineTo(-8,  4);
-      ctx.strokeStyle = 'rgba(255, 130, 0, 0.85)';
+      ctx.moveTo(skin.flameX, -skin.flameHalf);
+      ctx.lineTo(skin.flameX - rand(skin.flameLen * 0.45, skin.flameLen), 0);
+      ctx.lineTo(skin.flameX, skin.flameHalf);
+      ctx.strokeStyle = skin.flame;
       ctx.stroke();
     }
 
@@ -508,6 +626,11 @@ function killShip() {
 
 // ── Update ────────────────────────────────────────────────────────────────────
 function update(dt) {
+  // Selección de skin con teclas numéricas
+  for (let i = 1; i <= SKINS.length; i++) {
+    if (pressed('Digit' + i)) selectSkin(i - 1);
+  }
+
   if (state === 'gameover') {
     if (pressed('Space')) initGame();
     particles.forEach(p => p.update(dt));
@@ -613,16 +736,7 @@ function drawLifeIcon(x, y) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(-Math.PI / 2);
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth   = 1.2;
-  ctx.lineJoin    = 'round';
-  ctx.beginPath();
-  ctx.moveTo( 9,  0);
-  ctx.lineTo(-6, -5);
-  ctx.lineTo(-3,  0);
-  ctx.lineTo(-6,  5);
-  ctx.closePath();
-  ctx.stroke();
+  drawSkinShip(SKINS[skinIndex], 0.45);
   ctx.restore();
 }
 
@@ -639,6 +753,11 @@ function drawHUD() {
   for (let i = 0; i < lives; i++)
     drawLifeIcon(W - 16 - i * 22, 18);
 
+  // Indicador de skin
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+  ctx.font = '13px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(`NAVE: ${SKINS[skinIndex].name}   [1-${SKINS.length}]`, W / 2, H - 14);
 }
 
 function drawPowerUpBar() {
