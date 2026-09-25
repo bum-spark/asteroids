@@ -29,6 +29,8 @@ Luego visita `http://localhost:3000`.
 | `←` `→`   | Rotar nave |
 | `↑`       | Propulsar  |
 | `Espacio` | Disparar   |
+| `1`       | Nave clásica (blanca) |
+| `2`       | Nave morada (x2 tamaño, x2 puntos) |
 
 ## Puntuación
 
@@ -37,6 +39,8 @@ Luego visita `http://localhost:3000`.
 | Grande    | 20     |
 | Mediano   | 50     |
 | Pequeño   | 100    |
+
+> Con la nave morada (`2`) los puntos se duplican.
 
 ## Características
 

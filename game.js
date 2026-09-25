@@ -119,8 +119,27 @@ class Asteroid {
 }
 
 // ── Ship ──────────────────────────────────────────────────────────────────────
+const SHIP_TYPES = {
+  classic: { color: '#fff', scale: 1, scoreMultiplier: 1 },
+  purple:  { color: '#a64dff', scale: 2, scoreMultiplier: 2 },
+};
+
 class Ship {
-  constructor() { this.reset(); }
+  constructor(type = 'classic') {
+    this.type = SHIP_TYPES[type] ? type : 'classic';
+    this.reset();
+  }
+
+  getConfig() { return SHIP_TYPES[this.type]; }
+  getScale() { return this.getConfig().scale; }
+  getScoreMultiplier() { return this.getConfig().scoreMultiplier; }
+  getColor() { return this.getConfig().color; }
+
+  setType(type) {
+    if (!SHIP_TYPES[type]) return;
+    this.type = type;
+    this.radius = 12 * this.getScale();
+  }
 
   reset() {
     this.x      = W / 2;
@@ -128,7 +147,7 @@ class Ship {
     this.angle  = -Math.PI / 2;
     this.vx     = 0;
     this.vy     = 0;
-    this.radius = 12;
+    this.radius = 12 * this.getScale();
     this.thrusting     = false;
     this.invincible    = 3;
     this.shootCooldown = 0;
@@ -162,7 +181,7 @@ class Ship {
   tryShoot() {
     if (this.shootCooldown > 0 || this.dead) return [];
     this.shootCooldown = 0.2;
-    const NOSE = 21;
+    const NOSE = 21 * this.getScale();
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
     return [new Bullet(ox, oy, this.angle)];
@@ -176,25 +195,26 @@ class Ship {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
-    ctx.strokeStyle = '#fff';
+    const scale = this.getScale();
+    ctx.strokeStyle = this.getColor();
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
 
     // Silueta clásica: triángulo con muesca trasera
     ctx.beginPath();
-    ctx.moveTo( 20,  0);   // nariz
-    ctx.lineTo(-12, -9);   // ala izquierda
-    ctx.lineTo( -7,  0);   // muesca trasera
-    ctx.lineTo(-12,  9);   // ala derecha
+    ctx.moveTo( 20 * scale,   0);         // nariz
+    ctx.lineTo(-12 * scale, -9 * scale);  // ala izquierda
+    ctx.lineTo( -7 * scale,   0);         // muesca trasera
+    ctx.lineTo(-12 * scale,  9 * scale);  // ala derecha
     ctx.closePath();
     ctx.stroke();
 
     // Llama del propulsor
     if (this.thrusting && Math.random() > 0.35) {
       ctx.beginPath();
-      ctx.moveTo(-8, -4);
-      ctx.lineTo(-8 - rand(6, 14), 0);
-      ctx.lineTo(-8,  4);
+      ctx.moveTo(-8 * scale, -4 * scale);
+      ctx.lineTo((-8 - rand(6, 14)) * scale, 0);
+      ctx.lineTo(-8 * scale,  4 * scale);
       ctx.strokeStyle = 'rgba(255, 130, 0, 0.85)';
       ctx.stroke();
     }
@@ -307,6 +327,10 @@ function update(dt) {
     return;
   }
 
+  // Cambio de nave
+  if (pressed('Digit1')) ship.setType('classic');
+  if (pressed('Digit2')) ship.setType('purple');
+
   // Disparar
   if (pressed('Space')) {
     bullets.push(...ship.tryShoot());
@@ -327,7 +351,7 @@ function update(dt) {
       if (!a.dead && !b.dead && dist(b, a) < a.radius) {
         b.dead = true;
         a.dead = true;
-        score += POINTS[a.size];
+        score += POINTS[a.size] * ship.getScoreMultiplier();
         explode(a.x, a.y, a.size * 5);
         newAsteroids.push(...a.split());
       }
@@ -351,11 +375,11 @@ function update(dt) {
 }
 
 // ── Draw ──────────────────────────────────────────────────────────────────────
-function drawLifeIcon(x, y) {
+function drawLifeIcon(x, y, color = '#fff') {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(-Math.PI / 2);
-  ctx.strokeStyle = '#fff';
+  ctx.strokeStyle = color;
   ctx.lineWidth   = 1.2;
   ctx.lineJoin    = 'round';
   ctx.beginPath();
@@ -379,7 +403,7 @@ function drawHUD() {
   ctx.fillText(`NIVEL ${level}`, W / 2, 26);
 
   for (let i = 0; i < lives; i++)
-    drawLifeIcon(W - 16 - i * 22, 18);
+    drawLifeIcon(W - 16 - i * 22, 18, ship.getColor());
 
 }
 
