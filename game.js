@@ -278,6 +278,11 @@ class ShootingStar {
 
 // ── Skins ─────────────────────────────────────────────────────────────────────
 // Cada skin define la silueta (verts), colores y llama de la nave.
+// `spread` es el ángulo total del abanico de disparo: 0 = un solo tiro recto,
+// > 0 = doble tiro disperso (2 balas divergentes).
+// `cockpit` y `glow` son opcionales.
+const SPREAD_MOUTH = 20;  // ancho total entre los cañones del disparo disperso
+
 const SKINS = [
   {
     name: 'CLÁSICA',
@@ -290,6 +295,7 @@ const SKINS = [
     flameLen: 14,
     glow: null,
     cockpit: null,
+    spread: 0,
   },
   {
     name: 'FÉNIX',
@@ -302,6 +308,7 @@ const SKINS = [
     flameLen: 18,
     glow: 'rgba(255, 170, 0, 0.12)',
     cockpit: [10, 0],
+    spread: 0,
   },
   {
     name: 'VÍBORA',
@@ -314,6 +321,7 @@ const SKINS = [
     flameLen: 20,
     glow: 'rgba(74, 222, 128, 0.10)',
     cockpit: [12, 0],
+    spread: 0,
   },
   {
     name: 'SOMBRA',
@@ -326,6 +334,7 @@ const SKINS = [
     flameLen: 16,
     glow: 'rgba(109, 230, 255, 0.12)',
     cockpit: [9, 0],
+    spread: 0,
   },
   {
     name: 'NOVA',
@@ -338,6 +347,20 @@ const SKINS = [
     flameLen: 15,
     glow: 'rgba(255, 92, 240, 0.12)',
     cockpit: [8, 0],
+    spread: 0,
+  },
+  {
+    name: 'ESCOPETA',
+    color: '#a78bfa',
+    verts: [[22, 0], [8, -16], [2, -5], [-12, -9], [-6, 0], [-12, 9], [2, 5], [8, 16]],
+    nose: 23,
+    flameX: -11,
+    flame: 'rgba(180, 130, 255, 0.9)',
+    flameHalf: 6,
+    flameLen: 18,
+    glow: 'rgba(167, 139, 250, 0.12)',
+    cockpit: [6, 0],
+    spread: 0.4,
   },
 ];
 
@@ -459,16 +482,29 @@ class Ship {
     const skin = SKINS[skinIndex];
     const ox = this.x + Math.cos(this.angle) * skin.nose;
     const oy = this.y + Math.sin(this.angle) * skin.nose;
+    const px = -Math.sin(this.angle);   // perpendicular al morro
+    const py =  Math.cos(this.angle);
+
+    // Disparo disperso: 2 balas divergentes; con Triple shot, 3 en abanico
+    if (skin.spread > 0) {
+      const count = this.tripleTimer > 0 ? 3 : 2;
+      const shots = [];
+      for (let i = 0; i < count; i++) {
+        const t = i / (count - 1);            // 0..1 a lo largo del abanico
+        const off = (t - 0.5) * SPREAD_MOUTH; // boca de los cañones
+        shots.push(new Bullet(ox + px * off, oy + py * off,
+                              this.angle + (t - 0.5) * skin.spread));
+      }
+      return shots;
+    }
 
     // Power-up triple shot: 3 balas paralelas en línea recta
     if (this.tripleTimer > 0) {
       const PERP = 8;   // separación perpendicular entre balas
-      const px = -Math.sin(this.angle) * PERP;
-      const py =  Math.cos(this.angle) * PERP;
       return [
-        new Bullet(ox - px, oy - py, this.angle),
-        new Bullet(ox,        oy,        this.angle),
-        new Bullet(ox + px, oy + py, this.angle),
+        new Bullet(ox - px * PERP, oy - py * PERP, this.angle),
+        new Bullet(ox,          oy,           this.angle),
+        new Bullet(ox + px * PERP, oy + py * PERP, this.angle),
       ];
     }
     return [new Bullet(ox, oy, this.angle)];

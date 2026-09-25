@@ -29,7 +29,7 @@ Luego visita `http://localhost:3000`.
 | `←` `→`   | Rotar nave |
 | `↑`       | Propulsar  |
 | `Espacio` | Disparar   |
-| `1` – `5` | Cambiar skin de la nave |
+| `1` – `6` | Cambiar skin de la nave |
 
 ## Puntuación
 
@@ -47,5 +47,6 @@ Luego visita `http://localhost:3000`.
 - Power-up **Velocidad**: suelta al azar al destruir asteroides; al recogerlo duplica la aceleración durante 5 segundos, con barra de tiempo restante en la esquina inferior izquierda
 - Power-up **Escudo**: suelta al azar al destruir asteroides o estrellas fugaces; al recogerlo protege la nave durante 6 segundos con una burbuja que anula los impactos (asteroides y estrellas siguen su camino intactos), con barra de tiempo restante bajo la de Velocidad
 - Power-up **Triple shot**: suelta al azar al destruir asteroides o estrellas fugaces; al recogerlo dispara 3 balas en paralelo durante 5 segundos, con barra de tiempo restante
-- **Skins**: 5 naves desbloqueables con las teclas `1`–`5` (se guarda la selección)
+- **Skins**: 6 naves desbloqueables con las teclas `1`–`6` (se guarda la selección)
+- **Nave ESCOPETA**: silueta de doble cañón que lanza 2 disparos dispersos por ráfaga (abanico de 0.4 rad) en lugar de un tiro recto; con el power-up Triple shot pasa a 3 balas en abanico
 - **Estrella fugaz**: asteroide especial en forma de estrella dorada, más rápido que los normales, con estela y destellos; aparece con poca probabilidad al destruir asteroides, desaparece solo y da 200 puntos
