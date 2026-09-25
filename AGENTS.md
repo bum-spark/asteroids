@@ -16,6 +16,8 @@
 - Power-up "Escudo" (`type = 'escudo'`): 10% drop from destroyed asteroids and shooting stars; collecting sets `ship.shieldTimer = SHIELD_DURATION` and draws a cyan pulsing bubble around the ship that cancels collisions (asteroids/stars pass through, ship survives, no points, no destroy); HUD bar below the Velocidad one.
 - Power-up "Triple shot" (`type = 'triple'`): 25% drop from destroyed asteroids and shooting stars (pickup with ttl); collecting sets `ship.tripleTimer = POWERUP_DURATION` so `tryShoot()` fires 3 parallel bullets perpendicular to heading; HUD bar bottom-left. PowerUp has `type` ('velocidad' | 'escudo' | 'triple').
 - "Estrella fugaz" (`ShootingStar`): 10% spawn on asteroid kill; fast gold star with two-pass trail, propulsion sparks, glow halo and twinkle, worth `SHOOTING_STAR_POINTS` (200), no split; fades out over last `SHOOTING_STAR_FADE` s of its `SHOOTING_STAR_TTL` lifetime with a final spark burst; may drop power-up (25%).
+- Skins: array `SKINS` (silueta `verts`, `color`, `flame*`, `nose`, `glow`, `cockpit`, `spread`), selectable with keys `1`–`SKINS.length` and persisted in `localStorage` (`asteroids.skin`). Skin `spread` is the TOTAL fan angle in radians: `0` = one straight bullet, `> 0` = double dispersed shot (2 bullets at ±spread/2) with `SPREAD_MOUTH` px between muzzles. "ESCOPETA" is the only spread skin (`spread: 0.4`).
+- Spread ships ignore the "Triple shot" parallel pattern: with `ship.tripleTimer > 0` they fire 3 bullets evenly fanned across the same `spread` instead.
 - All movement wraps edges (`wrap()`); collisions use `dist()` circle checks.
 
 ## Gotchas
