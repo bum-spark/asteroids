@@ -5,6 +5,26 @@ const ctx = canvas.getContext('2d');
 const W = 800;
 const H = 600;
 
+// ── Escalado de pantalla ──────────────────────────────────────────────────────
+// El mundo lógico sigue siendo 800×600 (proporción 4:3) para no tocar el balance:
+// solo se ajusta el lienzo al espacio disponible en la ventana del navegador,
+// subiendo la resolución del búfer de dibujo para que no se vea borroso.
+function fitToWindow() {
+  const dpr = window.devicePixelRatio || 1;
+  const scale = Math.min(window.innerWidth / W, window.innerHeight / H);
+  const cssW = Math.floor(W * scale);   // con letterbox si la ventana es muy ancha
+  const cssH = Math.floor(H * scale);
+  canvas.style.width  = cssW + 'px';
+  canvas.style.height = cssH + 'px';
+  canvas.width  = Math.round(cssW * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  // Todo el dibujo sigue usando coordenadas lógicas (0..W, 0..H).
+  ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+}
+
+window.addEventListener('resize', fitToWindow);
+fitToWindow();
+
 // ── Input ─────────────────────────────────────────────────────────────────────
 const keys = {};
 const justPressed = {};

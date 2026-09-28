@@ -41,6 +41,7 @@ Luego visita `http://localhost:3000`.
 
 ## Características
 
+- La pantalla 4:3 (800×600) se escala sola para ocupar la ventana del navegador manteniendo las proporciones, con la resolución ajustada para que no se vea borrosa en monitores grandes
 - 3 vidas con invencibilidad temporal al reaparecer (parpadeo)
 - Asteroides se parten en fragmentos más pequeños al ser destruidos
 - Partículas de explosión al destruir asteroides

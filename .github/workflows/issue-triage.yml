@@ -149,8 +149,8 @@ jobs:
                                    code: ['const RADII', 'const SPEEDS', 'const POINTS', 'POWERUP_DURATION', 'SHIELD_DURATION', 'SHOOTING_STAR_TTL', 'SHOOTING_STAR_POINTS', 'SPREAD_MOUTH'] },
               'controles':      { words: ['tecla', 'teclas', 'key', 'control', 'mover', 'rotar', 'rotacion', 'propulsar', 'propulsion', 'dispara', 'disparar', 'disparo', 'disparos', 'bala', 'balas', 'bullets', 'espacio', 'flecha', 'flechas', 'arrowup', 'keyboard', 'input'],
                                    code: ['pressed(', 'justPressed', 'tryShoot', 'keys['] },
-              'render':         { words: ['dibuja', 'dibujar', 'dibujan', 'dibujado', 'render', 'canvas', 'traza', 'estela', 'particula', 'particulas', 'animacion', 'pixel', 'sprite', 'grafico', 'deform', 'textura', 'pantalla', 'pantallas', 'tamano', 'resolucion', 'fullscreen', 'navegador', 'browser', 'zoom', 'responsive', 'adaptar', 'ajustar', 'escalado', 'escalar'],
-                                   code: ['draw(', 'ctx.', 'Particle', 'const W =', 'const H ='] }
+              'render':         { words: ['dibuja', 'dibujar', 'dibujan', 'dibujado', 'render', 'canvas', 'traza', 'estela', 'particula', 'particulas', 'animacion', 'pixel', 'sprite', 'grafico', 'deform', 'textura', 'pantalla', 'pantallas', 'tamano', 'resolucion', 'fullscreen', 'navegador', 'browser', 'zoom', 'responsive', 'adaptar', 'ajustar', 'escalado', 'escalar', 'escala', 'redimensionar', 'redimension', 'resize', 'ventana', 'monitor', 'proporcion'],
+                                   code: ['draw(', 'ctx.', 'Particle', 'const W =', 'const H =', 'fitToWindow', 'setTransform'] }
             };
 
             const scored = Object.entries(AREAS)
