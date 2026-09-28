@@ -25,6 +25,7 @@ jobs:
     outputs:
       deep: ${{ steps.triage.outputs.deep }}
       areas: ${{ steps.triage.outputs.areas }}
+      auto: ${{ steps.triage.outputs.auto }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -232,6 +233,11 @@ jobs:
             if (vague) toAdd.push('needs-info');
             if (!type) toAdd.push('help wanted');
 
+            // El issue tiene lo necesario para implementarse solo: tipo accionable,
+            // sin ambiguedad y con referencias de codigo concretas. El job
+            // "implement" postea un /oc y opencode hace el trabajo.
+            const auto = (type && (type.label === 'enhancement' || type.label === 'bug')) && !vague && refs.length > 0;
+
             const target = [...new Set(toAdd)];
             const existing = new Set((issue.labels || []).map((l) => (typeof l === 'string' ? l : l.name)));
             const missing = target.filter((l) => !existing.has(l));
@@ -320,8 +326,12 @@ jobs:
               L.push('> No se pudo determinar el tipo por palabras clave. Revisar manualmente.');
               L.push('');
             }
+            if (auto) {
+              L.push('> Implementacion automatica activada: opencode esta implementando esto y abrira un PR para revisar. Si no aparece en unos minutos, comenta `/oc`.');
+              L.push('');
+            }
 
-            L.push('_Generado por `issue-triage.yml`. El texto original quedo sin modificar. Para analisis en profundidad, comenta `/oc explain`._');
+            L.push('_Generado por `issue-triage.yml`. El texto original quedo sin modificar. Para que opencode implemente este issue cuando no se auto-disparo, comenta `/oc`._');
             L.push('</details>');
 
             // El marcador de labels es lo que permite a la proxima corrida quitar las
@@ -341,7 +351,8 @@ jobs:
 
             core.setOutput('deep', String(deep));
             core.setOutput('areas', areas.join(','));
-            core.info('Triage #' + number + ': tipo=' + (type ? type.label : 'n/d') + ' areas=[' + areas.join(', ') + '] labels+' + missing.join(',') + ' deep=' + deep);
+            core.setOutput('auto', String(!!auto));
+            core.info('Triage #' + number + ': tipo=' + (type ? type.label : 'n/d') + ' areas=[' + areas.join(', ') + '] labels+' + missing.join(',') + ' deep=' + deep + ' auto=' + !!auto);
 
   ai:
     name: Analisis del agente
@@ -425,3 +436,73 @@ jobs:
               (m) => m + '\n\n<!-- triage:ai-link -->' + row + '\n'
             );
             await github.rest.issues.update({ ...opts, body });
+
+  implement:
+    name: Implementacion automatica
+    needs: triage
+    # Solo issues claros y accionables de humanos (ver output `auto` del triage).
+    if: ${{ needs.triage.outputs.auto == 'true' && !endsWith(github.actor, '[bot]') }}
+    runs-on: ubuntu-latest
+    # Implementar no debe marcar rojo el triage ya aplicado: si opencode no logra
+    # abrir el PR, la persona lo ve en el issue y comenta /oc.
+    continue-on-error: true
+    permissions:
+      issues: write
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Gate (autor confiable y sin PR abierto)
+        id: gate
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const number = context.payload.issue ? context.payload.issue.number : Number(context.payload.inputs.issue_number);
+            const opts = { owner: context.repo.owner, repo: context.repo.repo, issue_number: number };
+
+            const { data: issue } = await github.rest.issues.get(opts);
+            // No auto-implementar pedidos de cualquiera en un repo publico: solo
+            // autor dueno o colaborador del repo.
+            const collabs = new Set();
+            try {
+              for (const c of await github.paginate(github.rest.repos.listCollaborators, { owner: opts.owner, repo: opts.repo, per_page: 100 })) {
+                collabs.add(c.login);
+              }
+            } catch (e) { core.warning('No se pudieron listar colaboradores: ' + e.message); }
+            const trusted = issue.user.login === opts.owner || collabs.has(issue.user.login);
+
+            // Idempotencia: si opencode ya abrio un PR con rama opencode/issueN-*,
+            // no abrir otro (cubre edited/reopened/re-runs).
+            let dup = false;
+            try {
+              const prs = await github.paginate(github.rest.pulls.list, { owner: opts.owner, repo: opts.repo, state: 'open', per_page: 100 });
+              dup = prs.some((p) => {
+                const m = /^opencode\/issue(\d+)-/.exec(p.head.ref || '');
+                return m && Number(m[1]) === number;
+              });
+            } catch (e) { core.warning('Listado de PRs fallo: ' + e.message); }
+
+            const go = trusted && issue.state === 'open' && !dup;
+            core.setOutput('go', String(go));
+            core.info('Implement auto #' + number + ': autor=' + issue.user.login + ' confiable=' + trusted + ' pr-abierto=' + dup + ' go=' + go);
+
+      - name: Disparar opencode (/oc)
+        if: steps.gate.outputs.go == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const number = context.payload.issue ? context.payload.issue.number : Number(context.payload.inputs.issue_number);
+            const opts = { owner: context.repo.owner, repo: context.repo.repo, issue_number: number };
+
+            // No repetir si otro run ya lo disparo.
+            for (const c of await github.paginate(github.rest.issues.listComments, { ...opts, per_page: 100 })) {
+              if ((c.body || '').includes('<!-- triage:implement -->')) {
+                core.info('Ya hay un /oc automatico en #' + number + '; no repito.');
+                return;
+              }
+            }
+
+            // El body empieza con "/oc" para que el workflow `opencode.yml`
+            // (issue_comment) lo tome y haga la implementacion + PR.
+            const marker = '/oc\n\n<!-- triage:implement --> (implementacion automatica del issue-triage)';
+            await github.rest.issues.createComment({ ...opts, body: marker });
+            core.info('Comentario /oc posteado en #' + number);
