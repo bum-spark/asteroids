@@ -12,6 +12,7 @@
       align-items: center;
       justify-content: center;
       height: 100vh;
+      overflow: hidden;
     }
     canvas {
       display: block;
@@ -20,6 +21,7 @@
   </style>
 </head>
 <body>
+  <!-- Resolución lógica 4:3 del juego; game.js la escala al tamaño de la ventana -->
   <canvas id="canvas" width="800" height="600"></canvas>
   <script src="game.js"></script>
 </body>
