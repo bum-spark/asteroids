@@ -447,10 +447,17 @@ jobs:
     # abrir el PR, la persona lo ve en el issue y comenta /oc.
     continue-on-error: true
     permissions:
-      issues: write
+      id-token: write
       contents: read
       pull-requests: read
+      issues: write
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
       - name: Gate (autor confiable y sin PR abierto)
         id: gate
         uses: actions/github-script@v7
@@ -485,24 +492,36 @@ jobs:
             core.setOutput('go', String(go));
             core.info('Implement auto #' + number + ': autor=' + issue.user.login + ' confiable=' + trusted + ' pr-abierto=' + dup + ' go=' + go);
 
-      - name: Disparar opencode (/oc)
+      - name: Run OpenCode (implementar)
+        # OJO: se ejecuta opencode DIRECTO en este workflow. No se postea un /oc:
+        # un comentario creado con el GITHUB_TOKEN no dispara workflows (regla de
+        # GitHub, por eso el /oc del agente anterior quedo inerte).
         if: steps.gate.outputs.go == 'true'
-        uses: actions/github-script@v7
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:
-          script: |
-            const number = context.payload.issue ? context.payload.issue.number : Number(context.payload.inputs.issue_number);
-            const opts = { owner: context.repo.owner, repo: context.repo.repo, issue_number: number };
+          model: opencode/big-pickle
+          share: false
+          prompt: |
+            Implementa lo que pide ESTE issue en el juego Asteroids (canvas HTML5, toda la
+            logica en `game.js`, sin framework ni bundler).
 
-            // No repetir si otro run ya lo disparo.
-            for (const c of await github.paginate(github.rest.issues.listComments, { ...opts, per_page: 100 })) {
-              if ((c.body || '').includes('<!-- triage:implement -->')) {
-                core.info('Ya hay un /oc automatico en #' + number + '; no repito.');
-                return;
-              }
-            }
+            El triage dejo en el body del issue su bloque <details> con las labels, las
+            areas y las referencias a lineas de `game.js`: usa esas referencias como
+            punto de entrada para tocar el codigo.
 
-            // El body empieza con "/oc" para que el workflow `opencode.yml`
-            // (issue_comment) lo tome y haga la implementacion + PR.
-            const marker = '/oc\n\n<!-- triage:implement --> (implementacion automatica del issue-triage)';
-            await github.rest.issues.createComment({ ...opts, body: marker });
-            core.info('Comentario /oc posteado en #' + number);
+            Guia:
+            - Segui `AGENTS.md` del repo: nada de ES modules, canvas 800x600 sincronizado
+              en `index.html` y `game.js`, textos de UI y comentarios en espanol.
+            - Hace el cambio minimo que cumpla el pedido, sin romper skins, power-ups,
+              vidas ni balance.
+            - Verifica con `node --check game.js` antes de terminar.
+            - Si el cambio es visible para el usuario y hace falta, actualiza el README.
+
+            Entregable:
+            - Crea una rama `opencode/issue<N>-*` y abre un PR que referencie este issue
+              (ej: `Closes #N`). NO hagas merge y no toques `main` directo.
+            - Deja un comentario en el issue con el resumen de cambios y como verificar.
+
+            Si el pedido ya esta implementado o no es accionable, comentalo sin abrir PR.
