@@ -23,7 +23,10 @@
 ## CI
 - `.github/workflows/issue-triage.yml` runs on `issues: [opened, edited, reopened]` (plus manual `workflow_dispatch` with an `issue_number` input). Job `triage` (deterministic) prefixes the title (`[Bug]`, `[Feature]`, `[Mejora]`, `[Docs]`, `[Pregunta]`, `[Duplicado]`), applies type + area labels, and appends a `<details>` block at the end of the body with matching `game.js` lines, balance constants and possible duplicates. Jobs `ai` / `link` add an opencode analysis comment only when keywords are not enough (`deep` output).
 - The triage block is delimited by `<!-- triage:start -->` / `<!-- triage:end -->` and is **regenerated**, never appended twice; it is also excluded from its own keyword analysis. The issue author's text is never modified.
+- The block also carries a hidden `<!-- triage-labels: a,b,c -->` marker listing the labels the action applied last run. Each new run removes labels in that marker that the fresh classification no longer justifies (never labels a human applied). Issues triaged before this marker existed treat the managed labels already on them as auto-applied, so a re-run self-heals them.
+- When the deterministic triage can't determine the type (block shows `_sin determinar_` / `help wanted`), the agent is asked to close its `<!-- triage-ia -->` comment with a suggested label line (`bug`, `enhancement`, `documentation`, `question`, `duplicate`) — the human applies it, the agent never touches labels.
 - Area labels used by the triage: `power-up`, `escudo`, `skins`, `estrella-fugaz`, `colisiones`, `hud`, `balance`, `controles`, `render` (plus `needs-info`). If you add a game feature, add its keywords and code needles to the `AREAS` table so issues about it get labelled.
+- Keyword matching requires word boundaries (`\b…\b`), so list exact plurals/variants (e.g. `colision` and `colisiones`, not a prefix stem). Bots file issues in English, so common English keywords are included too.
 
 ## Gotchas
 - Canvas is hardcoded 800×600 in BOTH `index.html` and `game.js` (W/H) — keep in sync.

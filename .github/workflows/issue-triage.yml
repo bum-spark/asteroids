@@ -57,19 +57,20 @@ jobs:
             const rawBody = (issue.body || '').replace(REGION, '').trim();
             const flat = (rawTitle + '\n' + rawBody).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
             const words = flat.split(/[^a-z0-9+]+/).filter(Boolean);
-            // Cuenta ocurrencias NO solapadas, de la frase mas larga a la mas corta.
-            // Asi "agregar" no se cuenta dos veces por el subtexto "agrega", ni
-            // "mismo problema" suma un "problema" fantasma al tipo bug.
+            // Cuenta ocurrencias NO solapadas, de la frase mas larga a la mas corta,
+            // y exige limites de palabra a ambos lados. Los limites son lo que evita
+            // que "nave" matchee dentro de "navegador" y "agrega" dentro de "agregar";
+            // el barrido sin solapamiento es lo que evita que "mismo problema" suma un
+            // "problema" fantasma al tipo bug. Los plurales van como variantes
+            // explicitas en las listas, porque \bnueva\b no matchea "nuevas".
             const countPhrase = (text, needles) => {
               const taken = new Uint8Array(text.length);
               let total = 0;
               for (const needle of [...needles].sort((a, b) => b.length - a.length)) {
-                for (let from = 0; from <= text.length; from++) {
-                  const at = text.indexOf(needle, from);
-                  if (at < 0) break;
-                  from = at + 1;
-                  if (taken[at]) continue;
-                  for (let k = 0; k < needle.length; k++) taken[at + k] = 1;
+                const re = new RegExp('\\b' + needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'g');
+                for (let m = re.exec(text); m; m = re.exec(text)) {
+                  if (taken[m.index]) continue;
+                  for (let k = 0; k < m[0].length; k++) taken[m.index + k] = 1;
                   total++;
                 }
               }
@@ -77,16 +78,17 @@ jobs:
             };
             const hits = (haystack, needles, weight) => countPhrase(haystack, needles) * weight;
             // ---------------------------------------------------------------- labels
-            // Tipo: reusa las labels que ya existen en el repo.
+            // Tipo: reusa las labels que ya existen en el repo. Se incluyen variantes
+            // en ingles porque los agentes (Copilot, opencode) abren issues en ingles.
             const TYPES = [
-              { label: 'duplicate',   prefix: '[Duplicado]', words: ['duplicado', 'duplicar', 'ya existe', 'mismo problema', 'copia de', 'ya reportado', 'mismo bug', 'same as', 'repetido'] },
-              { label: 'question',    prefix: '[Pregunta]',  words: ['como puedo', 'como se hace', 'como hago', 'duda', 'pregunta', 'sabes', 'no entiendo', 'how do', 'how can', 'necesito ayuda'] },
-              { label: 'documentation', prefix: '[Docs]',     words: ['documentacion', 'documentar', 'typo', 'error de escritura', 'faltan pasos', 'instrucciones', 'falta el readme', 'falta documentacion', 'readme desactualizado', 'readme incorrecto', 'readme esta mal', 'readme no menciona', 'actualizar el readme', 'agregar al readme', 'falta explicar'] },
-              { label: 'bug',         prefix: '[Bug]',       words: ['no funciona', 'no me funciona', 'falla', 'fallo', 'fallar', 'error', 'bug', 'se rompe', 'rompe', 'romper', 'crash', 'se congela', 'congela', 'se traba', 'no aparece', 'no sale', 'no dispara', 'no explota', 'no se mueve', 'problema', 'deja de', 'se queda', 'undefined', 'no guarda', 'atraviesa', 'no hace', 'no dibuja', 'no suma', 'no dura', 'dura menos', 'se desaparece', 'desaparece', 'no responde', 'se pierde', 'pierde', 'no aguanta', 'no marca', 'no sirve', 'no cuenta', 'se corta'] },
-              { label: 'enhancement', prefix: '',           words: ['nueva', 'nuevo', 'agregar', 'anadir', 'agrega', 'anade', 'add', 'implementar', 'implementa', 'feature', 'opcion', 'me gustaria', 'quisiera', 'sugiero', 'propongo', 'propuesta', 'crear', 'incluir', 'soporte', 'podriamos', 'seria bueno', 'necesito', 'necesitamos', 'se podria'] }
+              { label: 'duplicate',   prefix: '[Duplicado]', words: ['duplicado', 'duplicar', 'duplicada', 'ya existe', 'mismo problema', 'misma duda', 'copia de', 'ya reportado', 'mismo bug', 'same as', 'same issue', 'duplicated', 'duplicate of', 'repetido'] },
+              { label: 'question',    prefix: '[Pregunta]',  words: ['como puedo', 'como se hace', 'como hago', 'duda', 'dudas', 'pregunta', 'sabes', 'no entiendo', 'how do', 'how can', 'necesito ayuda', 'is it possible', 'wondering'] },
+              { label: 'documentation', prefix: '[Docs]',     words: ['documentacion', 'documentar', 'typo', 'error de escritura', 'faltan pasos', 'instrucciones', 'falta el readme', 'falta documentacion', 'readme desactualizado', 'readme incorrecto', 'readme esta mal', 'readme no menciona', 'actualizar el readme', 'agregar al readme', 'falta explicar', 'docs are wrong', 'outdated readme', 'missing docs'] },
+              { label: 'bug',         prefix: '[Bug]',       words: ['no funciona', 'no me funciona', 'falla', 'fallo', 'fallar', 'falla el', 'error', 'bug', 'se rompe', 'rompe', 'rompen', 'romper', 'crash', 'se congela', 'congela', 'se traba', 'no aparece', 'no sale', 'no dispara', 'no explota', 'no se mueve', 'problema', 'problemas', 'deja de', 'se queda', 'undefined', 'nan', 'no guarda', 'atraviesa', 'no hace', 'no dibuja', 'no suma', 'no dura', 'dura menos', 'se desaparece', 'desaparece', 'desaparecen', 'no responde', 'se pierde', 'pierde', 'pierden', 'no aguanta', 'no marca', 'no sirve', 'no cuenta', 'se corta', 'not working', 'does not work', 'doesnt work', 'stops working', 'broken', 'breaks', 'fails', 'failing', 'crashes', 'glitch', 'whats wrong', 'wrong behavior'] },
+              { label: 'enhancement', prefix: '',           words: ['nueva', 'nuevas', 'nuevo', 'nuevos', 'agregar', 'anadir', 'agrega', 'anade', 'add', 'added', 'adding', 'new', 'implementar', 'implementa', 'feature', 'opcion', 'opciones', 'me gustaria', 'quisiera', 'sugiero', 'sugerir', 'propongo', 'propuesta', 'crear', 'incluir', 'soporte', 'podriamos', 'seria bueno', 'necesito', 'necesitamos', 'se podria', 'want', 'would like', 'please add', 'incrementar', 'aumentar', 'agrandar', 'achicar', 'ajustar', 'ajuste', 'redimensionar', 'vamos a hacer', 'queremos', 'cambiar', 'cambia', 'cambio', 'podriamos agregar', 'hagamos', 'se ajuste'] }
             ];
-            const FEATURE_WORDS = ['nueva', 'nuevo', 'agregar', 'anadir', 'agrega', 'anade', 'add', 'implementar', 'feature', 'opcion', 'crear', 'incluir', 'soporte', 'necesito', 'necesitamos'];
-            const IMPROVE_WORDS = ['mejorar', 'mejora', 'mejor', 'optimizar', 'optimizacion', 'refactor', 'pulir', 'pulido', 'mas rapido', 'rendimiento', 'performance', 'simplificar', 'ordenar', 'limpieza', 'clean up', 'lento', 'tarda', 'pesa', 'consume'];
+            const FEATURE_WORDS = ['nueva', 'nuevas', 'nuevo', 'nuevos', 'agregar', 'anadir', 'agrega', 'anade', 'add', 'added', 'new', 'implementar', 'feature', 'opcion', 'crear', 'incluir', 'soporte', 'necesito', 'necesitamos', 'cambiar', 'ajustar', 'incrementar', 'aumentar', 'agrandar', 'want', 'would like'];
+            const IMPROVE_WORDS = ['mejorar', 'mejora', 'mejor', 'mejore', 'optimizar', 'optimizacion', 'refactor', 'pulir', 'pulido', 'mas rapido', 'rendimiento', 'performance', 'simplificar', 'ordenar', 'limpieza', 'clean up', 'lento', 'lenta', 'tarda', 'pesa', 'consume', 'improve', 'optimize', 'faster', 'cleaner'];
 
             const titleFlat = rawTitle.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
             const bodyFlat = rawBody.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -102,12 +104,10 @@ jobs:
               const all = TYPES.flatMap((t) => t.words.map((w) => ({ w, label: t.label })))
                 .sort((a, b) => b.w.length - a.w.length);
               for (const { w, label } of all) {
-                for (let from = 0; from <= text.length; from++) {
-                  const at = text.indexOf(w, from);
-                  if (at < 0) break;
-                  from = at + 1;
-                  if (taken[at]) continue;
-                  for (let k = 0; k < w.length; k++) taken[at + k] = 1;
+                const re = new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'g');
+                for (let m = re.exec(text); m; m = re.exec(text)) {
+                  if (taken[m.index]) continue;
+                  for (let k = 0; k < m[0].length; k++) taken[m.index + k] = 1;
                   byType.set(label, (byType.get(label) || 0) + 1);
                 }
               }
@@ -132,24 +132,24 @@ jobs:
 
             // ---------------------------------------------------------------- areas
             const AREAS = {
-              'power-up':       { words: ['power-up', 'powerup', 'power up', 'powerups', 'recolect', 'recojer', 'suelta', 'soltar', 'drop', 'botin', 'item'],
+              'power-up':       { words: ['power-up', 'powerup', 'power up', 'powerups', 'recolecta', 'recolectar', 'recojer', 'recoger', 'recogida', 'suelta', 'soltar', 'drop', 'botin', 'item'],
                                    code: ['POWERUP_DURATION', 'class PowerUp', 'powerups.push', "'velocidad'", 'SHIELD_DURATION'] },
-              'escudo':         { words: ['escudo', 'shield', 'burbuja', 'invulnerab', 'proteg', 'protecci', 'absorbe', 'parpadeo'],
+              'escudo':         { words: ['escudo', 'escudos', 'shield', 'burbuja', 'invulnerable', 'invulnerabilidad', 'protege', 'protegido', 'proteccion', 'proteger', 'absorbe', 'absorber', 'parpadeo'],
                                    code: ['SHIELD_DURATION', 'shieldTimer', "'escudo'", 'shield > 0'] },
-              'skins':          { words: ['skin', 'skins', 'nave', 'naves', 'ship', 'silueta', 'escopeta', 'modelo', 'canon', 'dispersion', 'disperso', 'abanico', 'apariencia', 'morada', 'morado', 'morao', 'color de la nave', 'forma'],
+              'skins':          { words: ['skin', 'skins', 'nave', 'naves', 'ship', 'silueta', 'siluetas', 'escopeta', 'modelo', 'canon', 'canones', 'dispersion', 'disperso', 'abanico', 'apariencia', 'morada', 'morado', 'morao', 'color de la nave', 'forma'],
                                    code: ['SKINS', 'class Ship', 'drawSkinShip', 'tryShoot', 'SKIN_STORAGE_KEY', 'SPREAD_MOUTH'] },
-              'estrella-fugaz': { words: ['estrella fugaz', 'estrella', 'fugaz', 'shooting star', 'destello dorado', 'estrella dorada'],
+              'estrella-fugaz': { words: ['estrella fugaz', 'estrella', 'estrellas', 'fugaz', 'fugaces', 'shooting star', 'destello dorado', 'estrella dorada'],
                                    code: ['class ShootingStar', 'SHOOTING_STAR_'] },
-              'colisiones':     { words: ['colisi', 'choc', 'impacto', 'golpe', 'atraviesa', 'explosion', 'invicible', 'invulnerab', 'golpear'],
+              'colisiones':     { words: ['colision', 'colisiones', 'choca', 'chocar', 'chocan', 'impacto', 'golpe', 'atraviesa', 'explosion', 'invicible', 'invulnerable', 'golpear'],
                                    code: ['killShip', 'dist(', 'state = ', 'ship.shield'] },
-              'hud':            { words: ['hud', 'barra', 'puntaje', 'puntuacion', 'score', 'puntos', 'vida', 'vidas', 'contador', 'overlay', 'interfaz', 'texto', 'ui ', 'marcador', 'game over', 'gameover'],
+              'hud':            { words: ['hud', 'barra', 'barras', 'puntaje', 'puntuacion', 'score', 'puntos', 'vida', 'vidas', 'contador', 'overlay', 'interfaz', 'texto', 'ui', 'marcador', 'game over', 'gameover'],
                                    code: ['drawHUD', 'drawPowerUpBars', 'drawEffectBar', 'drawOverlay', 'POINTS'] },
-              'balance':        { words: ['dificil', 'facil', 'equilibrio', 'duracion', 'durar', 'ttl', 'probabilidad', 'frecuencia', 'multiplicador', 'speed', 'velocidad', 'dificultad', 'muy rapido', 'muy lento', 'tarda', 'constante'],
+              'balance':        { words: ['dificil', 'facil', 'equilibrio', 'duracion', 'durar', 'ttl', 'probabilidad', 'frecuencia', 'multiplicador', 'speed', 'velocidad', 'dificultad', 'muy rapido', 'muy lento', 'tarda', 'constante', 'constantes'],
                                    code: ['const RADII', 'const SPEEDS', 'const POINTS', 'POWERUP_DURATION', 'SHIELD_DURATION', 'SHOOTING_STAR_TTL', 'SHOOTING_STAR_POINTS', 'SPREAD_MOUTH'] },
-              'controles':      { words: ['tecla', 'teclas', 'key', 'control', 'mover', 'rotar', 'rotacion', 'propuls', 'dispar', 'bala', 'bullets', 'espacio', 'flecha', 'arrowup', 'keyboard', 'input'],
+              'controles':      { words: ['tecla', 'teclas', 'key', 'control', 'mover', 'rotar', 'rotacion', 'propulsar', 'propulsion', 'dispara', 'disparar', 'disparo', 'disparos', 'bala', 'balas', 'bullets', 'espacio', 'flecha', 'flechas', 'arrowup', 'keyboard', 'input'],
                                    code: ['pressed(', 'justPressed', 'tryShoot', 'keys['] },
-              'render':         { words: ['dibuja', 'dibuj', 'render', 'canvas', 'traza', 'estela', 'particula', 'animac', 'pixel', 'sprite', 'grafico', 'deform', 'textura'],
-                                   code: ['draw(', 'ctx.', 'Particle'] }
+              'render':         { words: ['dibuja', 'dibujar', 'dibujan', 'dibujado', 'render', 'canvas', 'traza', 'estela', 'particula', 'particulas', 'animacion', 'pixel', 'sprite', 'grafico', 'deform', 'textura', 'pantalla', 'pantallas', 'tamano', 'resolucion', 'fullscreen', 'navegador', 'browser', 'zoom', 'responsive', 'adaptar', 'ajustar', 'escalado', 'escalar'],
+                                   code: ['draw(', 'ctx.', 'Particle', 'const W =', 'const H ='] }
             };
 
             const scored = Object.entries(AREAS)
@@ -216,7 +216,7 @@ jobs:
                   if (i.number === number || found.has(i.number)) continue;
                   found.set(i.number, {
                     number: i.number, title: i.title, state: i.state,
-                    shared: [...common(i.title + ' ' + (i.body || ''))].filter((w) => mine.has(w)).slice(0, 3)
+                    shared: [...common(i.title + ' ' + (i.body || ''))].filter((w) => mine.has(w) && w.length >= 5 && !STOP.has(w)).slice(0, 3)
                   });
                 }
               } catch (e) { core.warning('Busqueda de duplicados fallo: ' + e.message); }
@@ -232,15 +232,27 @@ jobs:
             if (vague) toAdd.push('needs-info');
             if (!type) toAdd.push('help wanted');
 
+            const target = [...new Set(toAdd)];
             const existing = new Set((issue.labels || []).map((l) => (typeof l === 'string' ? l : l.name)));
-            const missing = [...new Set(toAdd)].filter((l) => !existing.has(l));
+            const missing = target.filter((l) => !existing.has(l));
 
+            // Labels que puso esta action en la corrida anterior (marcador en el body).
+            // Solo se quitan esas: una label puesta por una persona nunca se toca.
             const AREA_META = {
               'power-up': '1d76db', 'escudo': '00b6d3', 'skins': 'a2eeef', 'estrella-fugaz': 'fbca04',
               'colisiones': 'd93f0b', 'hud': '5319e7', 'balance': '0e8a16', 'controles': '006b75', 'render': 'c2e0c6'
             };
             const EXTRA_META = { 'needs-info': ['fbca04', 'Falta informacion del autor para poder reproducir'] };
-            const wanted = [...new Set(toAdd)].map((name) => {
+            const managed = new Set([...Object.keys(AREA_META), ...Object.keys(EXTRA_META), 'help wanted', 'bug', 'enhancement', 'documentation', 'question', 'duplicate', 'invalid', 'wontfix']);
+
+            const marker = (issue.body || '').match(/<!-- triage-labels: ([^>]*) -->/);
+            const autoApplied = marker ? new Set(marker[1].split(',').map((s) => s.trim()).filter(Boolean))
+              // Sin marcador (issues triaged antes de este cambio): asumimos que las
+              // labels "managed" presentes son nuestras para que se autoconrpijan.
+              : new Set([...existing].filter((l) => managed.has(l)));
+            const stale = [...autoApplied].filter((l) => !target.includes(l) && existing.has(l));
+
+            const wanted = target.map((name) => {
               if (AREA_META[name]) return { name, color: AREA_META[name], description: 'Area del juego: ' + name };
               if (EXTRA_META[name]) return { name, color: EXTRA_META[name][0], description: EXTRA_META[name][1] };
               return null;
@@ -252,6 +264,9 @@ jobs:
             }
             if (missing.length) {
               await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: number, labels: missing });
+            }
+            if (stale.length) {
+              await github.rest.issues.removeLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: number, labels: stale });
             }
 
             // ---------------------------------------------------------------- titulo
@@ -309,7 +324,10 @@ jobs:
             L.push('_Generado por `issue-triage.yml`. El texto original quedo sin modificar. Para analisis en profundidad, comenta `/oc explain`._');
             L.push('</details>');
 
-            const region = '<!-- triage:start -->\n<details>\n<summary>Triage automatico</summary>\n\n' + L.join('\n') + '\n<!-- triage:end -->';
+            // El marcador de labels es lo que permite a la proxima corrida quitar las
+            // que ya no correspondan (y solo las que puso esta action).
+            const region = '<!-- triage:start -->\n<details>\n<summary>Triage automatico</summary>\n\n' + L.join('\n') +
+              '\n<!-- triage-labels: ' + target.join(',') + ' -->\n<!-- triage:end -->';
             await github.rest.issues.update({
               owner: context.repo.owner, repo: context.repo.repo, issue_number: number,
               body: (rawBody ? rawBody + '\n\n' : '') + region
@@ -362,6 +380,12 @@ jobs:
                balance, vidas, estados del juego).
             4. **Como verificar**: pasos concretos, o `node --check game.js` mas lo que aplique.
 
+            Si el bloque del triage dice `Tipo | _sin determinar_` o aplico `help wanted`,
+            cerra el comentario con una linea de formato exacto:
+            `**Label sugerida**: \`enhancement\``
+            usando UNA sola de: bug, enhancement, documentation, question, duplicate.
+            No la apliques vos mismo: la decision final es humana.
+
             No comentes si el issue es trivial, es spam, o ya quedo cubierto por el triage
             determinista. No inventes referencias de codigo: citá lineas reales.
 
@@ -370,6 +394,8 @@ jobs:
     needs: [triage, ai]
     if: ${{ needs.ai.result == 'success' && needs.triage.outputs.deep == 'true' }}
     runs-on: ubuntu-latest
+    # Enlazar es cosmetico: si falla, el triage y el analisis ya quedaron aplicados.
+    continue-on-error: true
     permissions:
       issues: write
     steps:
@@ -383,7 +409,8 @@ jobs:
             const marker = '<!-- triage-ia -->';
             let target = null;
             for (let attempt = 0; attempt < 4 && !target; attempt++) {
-              const comments = (await github.paginate(github.rest.issues.listComments, { ...opts, per_page: 100 })).data;
+              // OJO: github.paginate() devuelve el array de items, no { data }.
+              const comments = await github.paginate(github.rest.issues.listComments, { ...opts, per_page: 100 });
               target = [...comments].reverse().find((c) => (c.body || '').includes(marker));
               if (!target) await new Promise((r) => setTimeout(r, 5000));
             }
